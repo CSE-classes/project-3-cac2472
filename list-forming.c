@@ -54,47 +54,49 @@ struct Node* generate_data_node()
     return ptr;
 }
 
-void * producer_thread( void *arg)
-{
-    bind_thread_to_cpu(*((int*)arg));//bind this thread to a CPU
+void *producer_thread(void *arg) {
+    bind_thread_to_cpu(*(int *)arg);
 
-    struct Node * ptr, tmp;
-    int counter = 0;  
+    struct Node *local_header = NULL;
+    struct Node *local_tail = NULL;
+    int counter = 0;
 
-    /* generate and attach K nodes to the global list */
-    while( counter  < K )
-    {
-        ptr = generate_data_node();
-
-        if( NULL != ptr )
-        {
-            while(1)
-            {
-		/* access the critical region and add a node to the global list */
-                if( !pthread_mutex_trylock(&mutex_lock) )
-                {
-                    ptr->data  = 1;//generate data
-		    /* attache the generated node to the global list */
-                    if( List->header == NULL )
-                    {
-                        List->header = List->tail = ptr;
-                    }
-                    else
-                    {
-                        List->tail->next = ptr;
-                        List->tail = ptr;
-                    }                    
-                    pthread_mutex_unlock(&mutex_lock);
-                    break;
-                }
-            }           
+    /* Build a local chain of K nodes to avoid lock contention */
+    while (counter < K) {
+        struct Node *ptr = generate_data_node();
+        if (ptr) {
+            ptr->data = 1;
+            if (!local_header) {
+                local_header = local_tail = ptr;
+            } else {
+                local_tail->next = ptr;
+                local_tail = ptr;
+            }
         }
-        ++counter;
+        counter++;
     }
+
+    /* Acquire lock once to attach the entire local chain to the global list */
+    pthread_mutex_lock(&mutex_lock);
+    if (List->header == NULL) {
+        List->header = local_header;
+        List->tail = local_tail;
+    } else {
+        List->tail->next = local_header;
+        List->tail = local_tail;
+    }
+    pthread_mutex_unlock(&mutex_lock);
+
+    return NULL;
 }
 
 int main(int argc, char* argv[])
 {
+    if (argc < 2) {
+    	printf("Usage: %s <num_threads>\n", argv[0]);
+    	return 1;
+    }
+
     int i, num_threads;
 
     int NUM_PROCS;//number of CPU
