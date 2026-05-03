@@ -1,3 +1,4 @@
+//  gcc list-forming.c -o list-forming -lpthread -D_GNU_SOURCE
 /*
   list-forming.c: 
   Each thread generates a data node, attaches it to a global list. 
