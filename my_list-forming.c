@@ -1,5 +1,5 @@
 /*
-  list-forming.c: 
+  My list-forming.c: 
   Each thread generates a data node, attaches it to a global list. This is reapeated for K times.
   There are num_threads threads. The value of "num_threads" is input by the student.
 */
